@@ -106,18 +106,23 @@ func (n *node) updateEdge(label rune, node *node) bool {
 	return false
 }
 
-// Delete the edge with the specified label
+// delete the edge with the specified label
 func (n *node) deleteEdge(label rune) bool {
 	length := len(n.edges)
 	index := sort.Search(length, func(i int) bool {
 		return n.edges[i].label >= label
 	})
 
-	// If found, delete n.edges[index]
+	// if found, delete n.edges[index]
 	if index < length && n.edges[index].label == label {
-		copy(n.edges[index:], n.edges[index+1:])
-		n.edges[len(n.edges)-1] = edge{}   // replace last element as empty edge
-		n.edges = n.edges[:len(n.edges)-1] // remove last element
+		n.edges = n.edges[:index+copy(n.edges[index:], n.edges[index+1:])]
+
+		/*
+			copy(n.edges[index:], n.edges[index+1:])
+			n.edges[len(n.edges)-1] = edge{}   // replace last element as empty edge
+			n.edges = n.edges[:len(n.edges)-1] // remove last element
+		*/
+
 		return true
 	}
 

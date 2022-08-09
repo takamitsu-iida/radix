@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"crypto/rand"
 	"fmt"
-	"net"
+	"net/netip"
 	"testing"
 )
 
@@ -22,55 +22,27 @@ var keys = []string{
 	"あかさたな",
 }
 
-func ipToUint(ip net.IP) uint32 {
-	return uint32(ip[0])<<24 | uint32(ip[1])<<16 | uint32(ip[2])<<8 | uint32(ip[3])
-}
-
-func cidrToBinaryString(s string) string {
-	ipv4Addr, ipv4Net, err := net.ParseCIDR(s)
-	if err != nil {
-		return ""
-	}
-	addr4 := ipv4Addr.To4()
-	maskLen, _ := ipv4Net.Mask.Size()
-
-	var out bytes.Buffer
-	for i := 0; i < 4; i++ {
-		out.WriteString(fmt.Sprintf("%08b", addr4[i]))
-	}
-	out.WriteString("/")
-	out.WriteString(fmt.Sprintf("%d", maskLen))
-	return out.String()
-}
-
-func TestIP(t *testing.T) {
-	s := cidrToBinaryString("10.1.0.0/24")
-	fmt.Println(s)
-	s = cidrToBinaryString("10.1.0.0/25")
-	fmt.Println(s)
-}
-
 func TestInsertDelete(t *testing.T) {
 	r := New()
 
-	// 挿入
+	// insert
 	for i, key := range keys {
 		r.Insert(key, i)
 	}
 
-	// 長さチェック
+	// check length
 	if r.Len() != len(keys) {
 		t.Fatalf("expected length=%v, got=%v", len(keys), r.Len())
 	}
 
 	// go test ./radix -v
-	// ツリーを表示
+	// print the tree
 	r.Walk(func(k string, v interface{}) bool {
 		fmt.Println(k, v)
 		return false
 	})
 
-	// 削除
+	// delete
 	for _, key := range keys {
 		_, ok := r.Delete(key)
 		if !ok {
@@ -78,41 +50,34 @@ func TestInsertDelete(t *testing.T) {
 		}
 	}
 
-	// 長さチェック
+	// check length
 	if r.Len() != 0 {
 		t.Fatalf("expected length=%v, got=%v", 0, r.Len())
 	}
 }
 
 func TestUpdate(t *testing.T) {
-	// keysを連結して重複したキーを作り出す
+	// create duplicated keys
 	duplicatedKeys := append(keys, keys...)
 
 	r := New()
 
-	// 挿入
+	// insert
 	for i, key := range duplicatedKeys {
 		r.Insert(key, i)
 	}
 
-	// 長さチェック
+	// check length
 	if r.Len() != len(keys) {
 		t.Fatalf("expected length=%v, got=%v", len(keys), r.Len())
 	}
 
-	// go test ./radix -v
-	// ツリーを表示
-	r.Walk(func(k string, v interface{}) bool {
-		fmt.Println(k, v)
-		return false
-	})
-
-	// 削除
+	// delete
 	for _, s := range keys {
 		r.Delete(s)
 	}
 
-	// 長さチェック
+	// check length
 	if r.Len() != 0 {
 		t.Fatalf("expected length=%v, got=%v", 0, r.Len())
 	}
@@ -121,12 +86,12 @@ func TestUpdate(t *testing.T) {
 func TestUndelete(t *testing.T) {
 	r := New()
 
-	// keysを挿入
+	// insert
 	for i, key := range keys {
 		r.Insert(key, i)
 	}
 
-	// keysではないものを削除
+	// delete the keys not in the tree
 	for _, key := range keys {
 		_, deleted := r.Delete(key + "_dummy")
 		if deleted {
@@ -134,12 +99,12 @@ func TestUndelete(t *testing.T) {
 		}
 	}
 
-	// 長さチェック
+	// check length
 	if r.Len() != len(keys) {
 		t.Fatalf("expected length=%v, got=%v", len(keys), r.Len())
 	}
 
-	// keysを削除
+	// delete
 	for _, key := range keys {
 		value, deleted := r.Delete(key)
 		if !deleted {
@@ -147,6 +112,7 @@ func TestUndelete(t *testing.T) {
 		}
 	}
 
+	// check length
 	if r.Len() != 0 {
 		t.Fatalf("expected length=%v, got=%v", 0, r.Len())
 	}
@@ -213,13 +179,13 @@ func testUuid(t *testing.T) {
 		t.Fatalf("expected length=%v, got=%v", r.Len(), len(m))
 	}
 
-	// 表示する
+	// print the tree
 	r.Walk(func(k string, v interface{}) bool {
 		fmt.Println(k, v)
 		return false
 	})
 
-	// v == Get(k)を確認
+	// check v == Get(k)
 	for k, v := range m {
 		value, ok := r.Get(k)
 		if !ok {
@@ -230,19 +196,19 @@ func testUuid(t *testing.T) {
 		}
 	}
 
-	// ツリーのトップ
+	// check top of the tree
 	top, _, _ := r.Top()
 	if top != min {
 		t.Fatalf("expected top value=%v, got=%v", min, top)
 	}
 
-	// ツリーのボトム
+	// check bottom of the tree
 	bottom, _, _ := r.Bottom()
 	if bottom != max {
 		t.Fatalf("expected bottom=%v, got=%v", max, bottom)
 	}
 
-	// 一つずつツリーから削除する
+	// delete
 	for k, v := range m {
 		value, ok := r.Delete(k)
 		if !ok {
@@ -253,13 +219,13 @@ func testUuid(t *testing.T) {
 		}
 	}
 
-	// 全部消してゼロになったか
+	// check length
 	if r.Len() != 0 {
 		t.Fatalf("expected length=%v, got=%v", 0, r.Len())
 	}
 }
 
-// 乱数を使った疑似UUIDの生成
+// generate psuedo uuid
 func uuid() string {
 	b := make([]byte, 16)
 
@@ -269,4 +235,40 @@ func uuid() string {
 	}
 
 	return fmt.Sprintf("%X-%X-%X-%X-%X", b[0:4], b[4:6], b[6:8], b[8:10], b[10:])
+}
+
+/*
+func ipToUint(ip net.IP) uint32 {
+	return uint32(ip[0])<<24 | uint32(ip[1])<<16 | uint32(ip[2])<<8 | uint32(ip[3])
+}
+*/
+
+func cidrToBinaryString(s string) string {
+	fmt.Println(s)
+
+	addr, err := netip.ParseAddr(s)
+	if err != nil {
+		fmt.Println("???")
+		return ""
+	}
+	addr4 := addr.AsSlice()
+	maskLen := addr.BitLen()
+
+	var out bytes.Buffer
+	for i := 0; i < 4; i++ {
+		out.WriteString(fmt.Sprintf("%08b", addr4[i]))
+	}
+	out.WriteString("/")
+	out.WriteString(fmt.Sprintf("%d", maskLen))
+	return out.String()
+}
+
+func TestIP(t *testing.T) {
+	prefix := "10.1.0.0/24"
+	s := cidrToBinaryString(prefix)
+	fmt.Println(s)
+
+	prefix = "10.1.0.0/25"
+	s = cidrToBinaryString(prefix)
+	fmt.Println(s)
 }

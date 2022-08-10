@@ -17,9 +17,9 @@ https://ja.wikipedia.org/wiki/%E5%9F%BA%E6%95%B0%E6%9C%A8
 
 自分でもすぐに忘れてしまうのでメモを残します。
 
-ツリー構造自体はWikipediaの説明と同じですが、エッジの部分の実装が若干異なっています。
+ツリー構造自体はWikipediaの説明にあるものとだいたい同じです。
 
-![wikipedia](https://ja.wikipedia.org/wiki/%E3%83%95%E3%82%A1%E3%82%A4%E3%83%AB:Patricia_trie.svg, "radix tree")
+![wikipedia](https://en.wikipedia.org/wiki/Radix_tree#/media/File:Patricia_trie.svg, "radix tree")
 
 
 ### Tree
@@ -31,14 +31,10 @@ type Tree struct {
 }
 ```
 
-- `root`
-
-ルートノードです。
-ルートノードからエッジが伸びていきます。
-
-- `size`
-
-Tree内に格納されているkey, valueペア（リーフ）の数です。
+<dl>
+  <dt>root</dt>  <dd>ルートノードです。ルートノードからはエッジが伸びていきます。値を保持することはありません。</dd>
+  <dt>size</dt>  <dd>Tree内に格納されているkey, valueペア（リーフ）の数です。</dd>
+</dl>
 
 ### leaf
 
@@ -49,8 +45,10 @@ type leaf struct {
 }
 ```
 
-key, valueペアを保持する構造体です。
-leafを作成するとTreeのsizeを+1し、削除すると-1します。
+key-valueペアを保持する構造体です。
+keyは文字列、valueはインタフェースとして定義していますので、適宜キャストが必要です。
+
+leafを作成したらTreeのsizeを+1し、削除したらsizeを-1します。
 
 ### node
 
@@ -58,50 +56,29 @@ leafを作成するとTreeのsizeを+1し、削除すると-1します。
 type node struct {
 	leaf *leaf
 	prefixes []rune
-	edges edges
+	edges []edge
 }
 ```
 
-- `leaf`
-
-ノードが値を保持する場合は、リーフを作成し、そこへのポインタを保持します。
-リーフを持たない場合、leafはnilになります。
-
-- `prefixes`
-
-このノードにたどり着くまでの共通部分を除いたユニーク部分です。
-keyがUTF-8の場合を想定してruneのスライスです。
-
-- `edges`
-
-このノードから分岐していくエッジを格納するスライスです。
-常に辞書順にソートされています。
-
-### edges
-
-```go
-type edges []edge
-```
-
-このノードから分岐していく枝（エッジ）を格納したスライスです。
+<dl>
+  <dt>leaf</dt>  <dd>ノードが値を保持する場合は、リーフを作成し、そこへのポインタを保持します。リーフを持たない場合、leafはnilになります。</dd>
+  <dt>prefixes</dt>  <dd>このノードにたどり着くまでの共通部分を除いたユニーク部分です。keyがUTF-8の場合を想定してruneのスライスです。</dd>
+  <dt>edges</dt>  <dd>このノードから分岐していくエッジを格納するスライスです。常に辞書順にソートされています。</dd>
+</dl>
 
 ### edge
 
+```go
 type edge struct {
 	label rune
 	node  *node
 }
+```
 
-- `label`
-
-このエッジを識別するrune型の単一文字です。
-アルファベットしか扱わないのであれば26文字×大文字小文字で52本の枝がノードから分岐します。
-ノードから分岐するエッジは常に辞書順にソートされているので、この文字を使って探し当てるのは簡単です。
-
-- `node`
-
-そのエッジの先にいるノード、つまり子ノードです。
-
+<dl>
+  <dt>label</dt>  <dd>このエッジを識別するrune型の単一文字です。アルファベットしか扱わないのであれば26文字×大文字小文字で52本の枝がノードから分岐します。ノードから分岐するエッジは常に辞書順にソートされているので、この文字を使って探し当てるのは簡単です。</dd>
+  <dt>node</dt>  <dd>そのエッジの先にいるノード、つまり子ノードです。</dd>
+</dl>
 
 ### ツリー構造のイメージ
 

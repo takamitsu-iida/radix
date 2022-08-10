@@ -46,7 +46,7 @@ func (t *Tree) ToMap() map[string]interface{} {
 type node struct {
 	leaf     *leaf  // reference to a leaf node or nil
 	prefixes []rune // Unique part excluding the intersection until this node
-	edges    edges  //slice of edge, always kept sorted
+	edges    []edge // slice of edge, always kept sorted
 }
 
 // leaf definition, leaf stores a key-value-pair
@@ -69,7 +69,13 @@ func (n *node) isLeaf() bool {
 // add the specified edge
 func (n *node) addEdge(e edge) {
 	n.edges = append(n.edges, e)
-	n.edges.sort() // keep sorted
+	// keep sorted
+	sort.Slice(n.edges, func(i, j int) bool { return n.edges[i].label < n.edges[j].label })
+}
+
+// return number of edges
+func (n *node) edgeLen() int {
+	return len(n.edges)
 }
 
 // returns the child node beyond the edge of the specified label letter
@@ -127,19 +133,6 @@ func (n *node) deleteEdge(label rune) bool {
 	}
 
 	return false
-}
-
-// edges definition
-type edges []edge
-
-// return number of edges
-func (e edges) len() int {
-	return len(e)
-}
-
-// sort the edge
-func (e edges) sort() {
-	sort.Slice(e, func(i, j int) bool { return e[i].label < e[j].label })
 }
 
 // return the smallest int

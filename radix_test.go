@@ -120,16 +120,6 @@ func TestUndelete(t *testing.T) {
 }
 
 func TestLongestMatch(t *testing.T) {
-	r := New()
-
-	for _, key := range keys {
-		r.Insert(key, nil)
-	}
-
-	if r.Len() != len(keys) {
-		t.Fatalf("expected length=%v, got=%v", len(keys), r.Len())
-	}
-
 	tests := []struct {
 		input    string
 		expected string
@@ -145,6 +135,16 @@ func TestLongestMatch(t *testing.T) {
 		{"あした", "あ"},
 		{"あか", "あ"},
 		{"あお", "あ"},
+	}
+
+	r := New()
+
+	for _, key := range keys {
+		r.Insert(key, nil)
+	}
+
+	if r.Len() != len(keys) {
+		t.Fatalf("expected length=%v, got=%v", len(keys), r.Len())
 	}
 
 	for _, tt := range tests {
@@ -237,38 +237,87 @@ func uuid() string {
 	return fmt.Sprintf("%X-%X-%X-%X-%X", b[0:4], b[4:6], b[6:8], b[8:10], b[10:])
 }
 
-/*
-func ipToUint(ip net.IP) uint32 {
-	return uint32(ip[0])<<24 | uint32(ip[1])<<16 | uint32(ip[2])<<8 | uint32(ip[3])
-}
-*/
-
-func cidrToBinaryString(s string) string {
-	fmt.Println(s)
-
-	addr, err := netip.ParseAddr(s)
+func cidrToBinaryString(s string) (string, int, error) {
+	prefix, err := netip.ParsePrefix(s)
 	if err != nil {
-		fmt.Println("???")
-		return ""
+		return "", 0, err
 	}
-	addr4 := addr.AsSlice()
-	maskLen := addr.BitLen()
+
+	addrs := prefix.Addr().As4()
+	maskLen := prefix.Bits()
 
 	var out bytes.Buffer
 	for i := 0; i < 4; i++ {
-		out.WriteString(fmt.Sprintf("%08b", addr4[i]))
+		out.WriteString(fmt.Sprintf("%08b", addrs[i]))
 	}
-	out.WriteString("/")
-	out.WriteString(fmt.Sprintf("%d", maskLen))
-	return out.String()
+
+	return out.String(), maskLen, nil
+}
+
+func addrToBinaryString(s string) (string, error) {
+	addr, err := netip.ParseAddr(s)
+	if err != nil {
+		return "", err
+	}
+	addrs := addr.As4()
+
+	var out bytes.Buffer
+	for i := 0; i < 4; i++ {
+		out.WriteString(fmt.Sprintf("%08b", addrs[i]))
+	}
+
+	return out.String(), nil
 }
 
 func TestIP(t *testing.T) {
-	prefix := "10.1.0.0/24"
-	s := cidrToBinaryString(prefix)
-	fmt.Println(s)
+	// routing table
+	routes := []struct {
+		prefix  string
+		gateway string
+	}{
+		{"10.0.0.0/8", "gig1"},
+		{"10.0.0.0/16", "gig2"},
+		{"10.0.0.0/24", "gig3"},
+		{"192.168.0.0/24", "gig4"},
+		{"192.168.0.128/25", "gig5"},
+	}
 
-	prefix = "10.1.0.0/25"
-	s = cidrToBinaryString(prefix)
-	fmt.Println(s)
+	r := New()
+
+	// convert prefix to a bit string, insert into radix tree
+	for _, route := range routes {
+		addr, masklen, err := cidrToBinaryString(route.prefix)
+		if err != nil {
+			t.Fatalf("failed to convert string: %v", route.prefix)
+		}
+		addr = addr[:masklen]
+		r.Insert(addr, route.gateway)
+	}
+
+	tests := []struct {
+		destination string
+		expected    string
+	}{
+		{"10.0.0.1", "gig3"},
+		{"10.0.1.1", "gig2"},
+		{"10.1.1.1", "gig1"},
+		{"192.168.0.1", "gig4"},
+		{"192.168.0.129", "gig5"},
+	}
+
+	for _, test := range tests {
+		addr, err := addrToBinaryString(test.destination)
+		if err != nil {
+			t.Fatal("failed to convert string", err)
+		}
+
+		_, v, found := r.LongestMatch(addr)
+		if found == false {
+			t.Fatalf("key not found: %v", test.destination)
+		}
+		if test.expected != v {
+			t.Fatalf("expected: %v, got: %v", test.expected, v)
+		}
+	}
+
 }

@@ -284,13 +284,14 @@ func TestIP(t *testing.T) {
 
 	r := New()
 
-	// convert prefix to a bit string, insert into radix tree
+	// convert prefix to a bit string, then insert into radix tree
 	for _, route := range routes {
 		addr, masklen, err := cidrToBinaryString(route.prefix)
 		if err != nil {
 			t.Fatalf("failed to convert string: %v", route.prefix)
 		}
 		addr = addr[:masklen]
+		fmt.Println(addr)
 		r.Insert(addr, route.gateway)
 	}
 
@@ -319,5 +320,4 @@ func TestIP(t *testing.T) {
 			t.Fatalf("expected: %v, got: %v", test.expected, v)
 		}
 	}
-
 }

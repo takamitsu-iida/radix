@@ -208,3 +208,80 @@ rootノードからはエッジが一つだけ伸びていてラベルは(r)で�
 
 探索キーの長さがゼロではないのに次の子ノードが見つからない場合、それは探しているkey-valueペアのキーがツリーに格納されていないということです。
 最も深いところまで探索した時点でのノード情報を返却するようにすれば、ロンゲストマッチでの探索になります。
+
+
+### ルーティングテーブルの検索
+
+IPの経路情報はロンゲストマッチルールで転送先のゲートウェイが選ばれます。
+
+たとえば、10.0.0.0/8はgig1に転送、10.0.0.0/16はgig2に転送、10.0.0.0/24はgig3に転送するとします。
+宛先10.0.0.1のパケットが転送されるべきゲートウェイを考えます。
+この場合/8と/16と/24すべてのエントリに合致するのですが、一番長いマスク長は/24なので、gig3が選ばれます。
+
+この検索を容易に実現できるのがradix treeの特徴です。
+
+実際にradix treeに経路情報を格納するときには、プレフィクス情報をビット列に変換して格納すると簡単になります。
+
+10.0.0.0/8をビット表現すると`00001010`となります。/8なので先頭8ビットだけが使われます。
+
+10.0.0.0/16をビット表現すると`0000101000000000`となります。/16なので先頭16ビットが使われます。
+
+10.0.0.0/24をビット表現すると`000010100000000000000000`となります。/24なので先頭24ビットが使われます。
+
+宛先10.0.0.1をビット表現すると`000010100000000000000001`になりますので、これを探索キーとして探せば/24のエントリが最も近いところまでたどり着くことがわかるでしょう。
+
+radix_test.goにこのテスト（↓）を書きました。もちろん期待通りにPASSします。
+
+```go
+func TestIP(t *testing.T) {
+	// routing table
+	routes := []struct {
+		prefix  string
+		gateway string
+	}{
+		{"10.0.0.0/8", "gig1"},
+		{"10.0.0.0/16", "gig2"},
+		{"10.0.0.0/24", "gig3"},
+		{"192.168.0.0/24", "gig4"},
+		{"192.168.0.128/25", "gig5"},
+	}
+
+	r := New()
+
+	// convert prefix to a bit string, then insert into radix tree
+	for _, route := range routes {
+		addr, masklen, err := cidrToBinaryString(route.prefix)
+		if err != nil {
+			t.Fatalf("failed to convert string: %v", route.prefix)
+		}
+		addr = addr[:masklen]
+		r.Insert(addr, route.gateway)
+	}
+
+	tests := []struct {
+		destination string
+		expected    string
+	}{
+		{"10.0.0.1", "gig3"},
+		{"10.0.1.1", "gig2"},
+		{"10.1.1.1", "gig1"},
+		{"192.168.0.1", "gig4"},
+		{"192.168.0.129", "gig5"},
+	}
+
+	for _, test := range tests {
+		addr, err := addrToBinaryString(test.destination)
+		if err != nil {
+			t.Fatal("failed to convert string", err)
+		}
+
+		_, v, found := r.LongestMatch(addr)
+		if found == false {
+			t.Fatalf("key not found: %v", test.destination)
+		}
+		if test.expected != v {
+			t.Fatalf("expected: %v, got: %v", test.expected, v)
+		}
+	}
+}
+```

@@ -291,7 +291,6 @@ func TestIP(t *testing.T) {
 			t.Fatalf("failed to convert string: %v", route.prefix)
 		}
 		addr = addr[:masklen]
-		fmt.Println(addr)
 		r.Insert(addr, route.gateway)
 	}
 

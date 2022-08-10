@@ -24,6 +24,8 @@ https://ja.wikipedia.org/wiki/%E5%9F%BA%E6%95%B0%E6%9C%A8
 
 ### Tree
 
+radix treeの本体です。
+
 ```go
 type Tree struct {
 	root *node
@@ -36,7 +38,11 @@ type Tree struct {
   <dt>size</dt>  <dd>Tree内に格納されているkey, valueペア（リーフ）の数です。</dd>
 </dl>
 
+<br><br>
+
 ### leaf
+
+key-valueペアを保持する構造体です。leafを作成したらTreeのsizeを+1し、削除したらsizeを-1します。
 
 ```go
 type leaf struct {
@@ -45,12 +51,16 @@ type leaf struct {
 }
 ```
 
-key-valueペアを保持する構造体です。
-keyは文字列、valueはインタフェースとして定義していますので、適宜キャストが必要です。
+<dl>
+  <dt>key</dt>  <dd>文字列です。</dd>
+  <dt>val</dt>  <dd>インタフェースとして定義していますので、適宜キャストが必要です。</dd>
+</dl>
 
-leafを作成したらTreeのsizeを+1し、削除したらsizeを-1します。
+<br><br>
 
 ### node
+
+ツリーを構成するノードです。
 
 ```go
 type node struct {
@@ -66,7 +76,11 @@ type node struct {
   <dt>edges</dt>  <dd>このノードから分岐していくエッジを格納するスライスです。常に辞書順にソートされています。</dd>
 </dl>
 
+<br><br>
+
 ### edge
+
+ツリーを構成するエッジです。
 
 ```go
 type edge struct {
@@ -80,14 +94,17 @@ type edge struct {
   <dt>node</dt>  <dd>そのエッジの先にいるノード、つまり子ノードです。</dd>
 </dl>
 
+<br><br>
+
 ### ツリー構造のイメージ
+
+ツリー構造はこのような形をしています。
 
 ```txt
 [node]--+--(edge)--[node]
         +--(edge)--[node]
         +--(edge)--[node]
 ```
-
 
 例えば、
 
@@ -101,12 +118,15 @@ type edge struct {
 rommanceの先頭はrですので、ルートノードからラベルrを持ったエッジを探しますが、まだ何も格納されていないので見つかりません。
 ラベルrを持ったエッジを新規に作成してルートノードにぶら下げます。
 子ノード[rommance]も新規に作成してエッジにぶら下げます。
+キーをromanceとしたkey-valueペアをリーフとして作成しノードに保持します。
+
+この処理でこのようなツリー構造になりました。
 
 ```txt
 root-(r)-[romance]
 ```
 
-次にromanusを加えるとします。
+次にromanusをツリーに加えるとします。
 
 romanusの先頭文字はrですので、ラベルrを持ったエッジを探します。
 今度はすでに存在しますので、その先の子ノード[romance]に到達します。
@@ -114,6 +134,8 @@ romanusの先頭文字はrですので、ラベルrを持ったエッジを探�
 [romance]が持つプレフィクスと探索中のromanusを比較します。共通部分を取り出すとromanです。
 すでにある[romance]を共通部分である[roman]と、ユニークな部分である[ce]に分割します。
 探索中のromanusはユニークな部分を取り除き[us]というノードを作ります。
+
+この処理でこのようなツリー構造になりました。[roman]から二つに分岐しています。
 
 ```txt
 root-(r)-[roman]-+-(c)-[ce]
@@ -127,6 +149,8 @@ romulusはrで始まりますので、ラベルrを持ったエッジを探し�
 [roman]とromulusで共通部分を取り出すとromになります。
 すでにある[roman]を二つに分割し、共通部分の[rom]とユニーク部分の[an]に分けます。
 探索中のromulusはユニークな部分を取り出して[ulus]というノードを作ります。
+
+この処理でこのようなツリー構造になりました。[rom]から二つに分岐し、[an]から二つに分岐しています。
 
 ```txt
 root-(r)-[rom]-+-(a)-[an]-+-(c)-[ce]

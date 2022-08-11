@@ -326,6 +326,7 @@ func TestDomain(t *testing.T) {
 	// domain list
 	domains := []string{
 		"teams.microsoft.com",
+		"microsoft.com",
 		"*.teams.microsoft.com",
 		"*.microsoft.com",
 	}
@@ -352,21 +353,13 @@ func TestDomain(t *testing.T) {
 
 	for _, test := range tests {
 		reveresed := reverseUrl(test.input)
-		v, found := r.Get(reveresed)
-		if found {
-			if test.expected != v {
-				t.Fatalf("input: %v, expected: %v, got: %v", test.input, test.expected, v)
-			}
-		} else {
-			_, v, found := r.LongestMatch(reveresed)
-			if found == false {
-				t.Fatalf("key not found: %v", test.input)
-			}
-			if v != test.expected {
-				t.Fatalf("input: %v, expected: %v, got: %v", test.input, test.expected, v)
-			}
+		_, v, found := r.LongestMatch(reveresed)
+		if found == false {
+			t.Fatalf("key not found: %v", test.input)
 		}
-
+		if v != test.expected {
+			t.Fatalf("input: %v, expected: %v, got: %v", test.input, test.expected, v)
+		}
 	}
 }
 

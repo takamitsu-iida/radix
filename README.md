@@ -291,3 +291,71 @@ func TestIP(t *testing.T) {
 <br><br>
 
 ### ドメインリストの検索
+
+ドメイン名でフィルタリングする場合もロンゲストマッチ方式での検索が使われます。
+たとえばこの二つ。
+
+- "teams.microsoft.com"
+- "microsoft.com"
+
+teams.microsoft.comの方が長いドメイン名を持っていますので、こちらを優先的に処理すべきです。
+
+また、
+
+- *.microsoft.com"
+
+のように先頭にアスタリスクをつけて任意のサブドメイン名を表すこともよくあります。
+URLは文字列の先頭側がより詳細な情報を表していますので、絞り込みはやりづらい形です。
+ドメイン名をキーとして格納するときには順番をひっくり返して表現すると検索が容易になります。
+
+`teams.microsoft.com` であれば `com.microsoft.teams` のように変換します。
+`*.microsoft.com` であれば `com.microsoft.*` のように最後にアスタリスクがきます。
+この場合、最後のアスタリスクを削除して `com.microsoft.` としてキーを表現すればよいでしょう。
+
+radix_test.goにこのテスト（↓）を書きました。もちろん期待通りにPASSします。
+
+```go
+func TestDomain(t *testing.T) {
+	// domain list
+	domains := []string{
+		"teams.microsoft.com",
+		"microsoft.com",
+		"*.teams.microsoft.com",
+		"*.microsoft.com",
+	}
+
+	r := New()
+
+	for _, domain := range domains {
+		reversed := reverseUrl(domain)
+		if reversed[len(reversed)-1] == '*' {
+			reversed = reversed[:len(reversed)-1]
+		}
+		r.Insert(reversed, domain)
+	}
+
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{"teams.microsoft.com", "teams.microsoft.com"},
+		{"a.teams.microsoft.com", "*.teams.microsoft.com"},
+		{"a.b.teams.microsoft.com", "*.teams.microsoft.com"},
+		{"abc.microsoft.com", "*.microsoft.com"},
+	}
+
+	for _, test := range tests {
+		reveresed := reverseUrl(test.input)
+		_, v, found := r.LongestMatch(reveresed)
+		if found == false {
+			t.Fatalf("key not found: %v", test.input)
+		}
+		if v != test.expected {
+			t.Fatalf("input: %v, expected: %v, got: %v", test.input, test.expected, v)
+		}
+	}
+}
+```
+
+なお、URLの途中にアスタリスクが来る場合には対応できません。
+これに対応するにはもうちょっと工夫が必要です。

@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"fmt"
 	"net/netip"
+	"strings"
 	"testing"
 )
 
@@ -319,4 +320,64 @@ func TestIP(t *testing.T) {
 			t.Fatalf("expected: %v, got: %v", test.expected, v)
 		}
 	}
+}
+
+func TestDomain(t *testing.T) {
+	// domain list
+	domains := []string{
+		"teams.microsoft.com",
+		"*.teams.microsoft.com",
+		"*.microsoft.com",
+	}
+
+	r := New()
+
+	for _, domain := range domains {
+		reversed := reverseUrl(domain)
+		if reversed[len(reversed)-1] == '*' {
+			reversed = reversed[:len(reversed)-1]
+		}
+		r.Insert(reversed, domain)
+	}
+
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{"teams.microsoft.com", "teams.microsoft.com"},
+		{"a.teams.microsoft.com", "*.teams.microsoft.com"},
+		{"a.b.teams.microsoft.com", "*.teams.microsoft.com"},
+		{"abc.microsoft.com", "*.microsoft.com"},
+	}
+
+	for _, test := range tests {
+		reveresed := reverseUrl(test.input)
+		v, found := r.Get(reveresed)
+		if found {
+			if test.expected != v {
+				t.Fatalf("input: %v, expected: %v, got: %v", test.input, test.expected, v)
+			}
+		} else {
+			_, v, found := r.LongestMatch(reveresed)
+			if found == false {
+				t.Fatalf("key not found: %v", test.input)
+			}
+			if v != test.expected {
+				t.Fatalf("input: %v, expected: %v, got: %v", test.input, test.expected, v)
+			}
+		}
+
+	}
+}
+
+func reverseUrl(s string) string {
+	arr := strings.Split(s, ".")
+
+	// reverse the slice
+	n := len(arr)
+	for i := 0; i < (n / 2); i++ {
+		arr[i], arr[n-i-1] = arr[n-i-1], arr[i]
+	}
+
+	return strings.Join(arr, ".")
 }

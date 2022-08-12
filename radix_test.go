@@ -5,25 +5,26 @@ import (
 	"crypto/rand"
 	"fmt"
 	"net/netip"
+	"reflect"
 	"strings"
 	"testing"
 )
 
-var keys = []string{
-	"",
-	"あ",
-	"い",
-	"う",
-	"え",
-	"お",
-	"あい",
-	"あいう",
-	"あいうえ",
-	"あいうえお",
-	"あかさたな",
-}
-
 func TestInsertDelete(t *testing.T) {
+	keys := []string{
+		"",
+		"あ",
+		"い",
+		"う",
+		"え",
+		"お",
+		"あい",
+		"あいう",
+		"あいうえ",
+		"あいうえお",
+		"あかさたな",
+	}
+
 	r := New()
 
 	// insert
@@ -36,7 +37,10 @@ func TestInsertDelete(t *testing.T) {
 		t.Fatalf("expected length=%v, got=%v", len(keys), r.Len())
 	}
 
+	//
 	// go test ./radix -v
+	//
+
 	// print the tree
 	r.Walk(func(k string, v interface{}) bool {
 		fmt.Println(k, v)
@@ -58,6 +62,20 @@ func TestInsertDelete(t *testing.T) {
 }
 
 func TestUpdate(t *testing.T) {
+	keys := []string{
+		"",
+		"あ",
+		"い",
+		"う",
+		"え",
+		"お",
+		"あい",
+		"あいう",
+		"あいうえ",
+		"あいうえお",
+		"あかさたな",
+	}
+
 	// create duplicated keys
 	duplicatedKeys := append(keys, keys...)
 
@@ -85,6 +103,20 @@ func TestUpdate(t *testing.T) {
 }
 
 func TestUndelete(t *testing.T) {
+	keys := []string{
+		"",
+		"あ",
+		"い",
+		"う",
+		"え",
+		"お",
+		"あい",
+		"あいう",
+		"あいうえ",
+		"あいうえお",
+		"あかさたな",
+	}
+
 	r := New()
 
 	// insert
@@ -92,7 +124,7 @@ func TestUndelete(t *testing.T) {
 		r.Insert(key, i)
 	}
 
-	// delete the keys not in the tree
+	// delete keys not in the tree
 	for _, key := range keys {
 		_, deleted := r.Delete(key + "_dummy")
 		if deleted {
@@ -120,7 +152,55 @@ func TestUndelete(t *testing.T) {
 
 }
 
+func TestCollect(t *testing.T) {
+	keys := []string{
+		"sea",
+		"sells",
+		"shells",
+		"shore",
+	}
+
+	tests := []struct {
+		input    string
+		expected []string
+	}{
+		{"s", []string{"sea", "sells", "shells", "shore"}},
+		{"sh", []string{"shells", "shore"}},
+		{"she", []string{"shells"}},
+		{"sho", []string{"shore"}},
+		{"shore", []string{"shore"}},
+		{"shop", []string{}},
+	}
+
+	r := New()
+
+	for i, key := range keys {
+		r.Insert(key, i)
+	}
+
+	for _, test := range tests {
+		keys := r.CollectKeys(test.input)
+		if reflect.DeepEqual(keys, test.expected) == false {
+			t.Fatalf("input: %v, expected: %v, got: %v", test.input, test.expected, keys)
+		}
+	}
+}
+
 func TestLongestMatch(t *testing.T) {
+	keys := []string{
+		"",
+		"あ",
+		"い",
+		"う",
+		"え",
+		"お",
+		"あい",
+		"あいう",
+		"あいうえ",
+		"あいうえお",
+		"あかさたな",
+	}
+
 	tests := []struct {
 		input    string
 		expected string

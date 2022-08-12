@@ -44,13 +44,13 @@ key-valueペアを保持する構造体です。leafを作成したらTreeのsiz
 ```go
 type leaf struct {
 	key string
-	val interface{}
+	value interface{}
 }
 ```
 
 <dl>
-  <dt>key</dt>  <dd>文字列です。</dd>
-  <dt>val</dt>  <dd>インタフェースとして定義していますので、適宜キャストが必要です。</dd>
+  <dt>key</dt>  <dd>キーは文字列型です。</dd>
+  <dt>value</dt>  <dd>値を保持します。インタフェース型です。</dd>
 </dl>
 
 <br><br>
@@ -363,7 +363,7 @@ func TestDomain(t *testing.T) {
 大き目の変更が必要です。
 
 <!--
-どう工夫するか
+実装するならどうするか
 
 - ノードは、自身のプレフィクスにワイルドカードを含むかどうかを識別できるようにする。
 - ワイルドカードを含む場合、そこを起点とした新たなツリーをぶら下げる
@@ -377,8 +377,71 @@ root-(a)-[a*z, wc=true, root]
 こうするのは、どっちがいいのかな？
 root-(a)-[a]-(*)-[*z, wc=true, root]
 
-エッジ(*)を作った方がわかりやすいし、ワイルドカードに関係ない部分をツリーとして構築しやすい気がする。
+エッジ(*)を作るようにした方がわかりやすいし、ワイルドカードに関係ない部分をツリーとして構築しやすい気がする。
 
-というよりも、途中にワイルドカードが入ったら、それってツリーと言えるのかな？
+というよりも、途中にワイルドカードが入ったら、それってツリーと言えるのか？
+特に*が複数でてきたら、それはどんなツリーになる？
+ワイルドカードを含むキーはツリーに登録できないようにして、別のスライスにでも入れておけばいいんじゃないかな？
 
 -->
+
+<br><br>
+
+### ツリー配下のキーを集める
+
+文字を入力する時に補完候補が提示される便利な機能がありますが、radix treeを使うと容易に補完候補を抽出できます。
+ツリーの中から、与えられた文字列で始まるプレフィクスを持つものをすべて選べばよいわけです。
+
+探索キーの方が長い間は、共通部を削りながら探索を進めていきます。
+探索キーの長さがちょうど0になれば、そのノード配下すべてが対象です。
+探索キーがまだ残っているのに、次に進むべき子ノードが見つからない場合、与えられた文字列で始まるキーはツリー内に存在しないことになります。
+探索キーの方がノードのプレフィクスよりも短い場合、ノードのプレフィクスが探索キーで始まっているならそのノード配下すべてが対象です。
+
+このようにして与えられた文字列で始まるノードをできるだけ深く探索して、たどり着いたそのノード配下が候補のキーになります。
+
+radix_test.goにこのテスト（↓）を書きました。
+
+```go
+func TestCollect(t *testing.T) {
+	keys := []string{
+		"sea",
+		"sells",
+		"shells",
+		"shore",
+	}
+
+	tests := []struct {
+		input    string
+		expected []string
+	}{
+		{"s", []string{"sea", "sells", "shells", "shore"}},
+		{"sh", []string{"shells", "shore"}},
+		{"she", []string{"shells"}},
+		{"sho", []string{"shore"}},
+		{"shop", []string{}},
+	}
+
+	r := New()
+
+	for i, key := range keys {
+		r.Insert(key, i)
+	}
+
+	for _, test := range tests {
+		keys := r.CollectKeys(test.input)
+		if reflect.DeepEqual(keys, test.expected) == false {
+			t.Fatalf("input: %v, expected: %v, got: %v", test.input, test.expected, keys)
+		}
+	}
+}
+```
+
+`sea` と `sells` と `shells` と `shore` がツリーの中に格納されています。
+
+sを入力すると、sで始まっているもの、すなわち`sea` と `sells` と `shells` と `shore` の4つが候補として出てきます。
+
+shと入力すると、shで始まっているもの、すなわち `shells` と `shore` の2つが候補として出てきます。
+
+sheと入力すると、sheで始まっているもの、すなわち、`shells` だけが候補として出てきます。
+
+shopと入力すると、shopで始まっているものは何もありませんので、候補はありません。

@@ -51,8 +51,8 @@ type node struct {
 
 // leaf definition, leaf stores a key-value-pair
 type leaf struct {
-	key string
-	val interface{}
+	key   string
+	value interface{}
 }
 
 // edge definition, edge have single-letter labels that identify branches
@@ -189,14 +189,14 @@ func (t *Tree) Insert(k string, v interface{}) (inserted bool) {
 		if len(searches) == 0 {
 			if n.isLeaf() {
 				n.leaf.key = k
-				n.leaf.val = v
+				n.leaf.value = v
 				return false // false means overwrite existing node
 			}
 
 			// create a new leaf
 			n.leaf = &leaf{
-				key: k,
-				val: v,
+				key:   k,
+				value: v,
 			}
 			t.size++    // increase the size of the tree by +1
 			return true // true means newly inserted
@@ -214,8 +214,8 @@ func (t *Tree) Insert(k string, v interface{}) (inserted bool) {
 				label: searches[0],
 				node: &node{
 					leaf: &leaf{
-						key: k,
-						val: v,
+						key:   k,
+						value: v,
 					},
 					prefixes: searches,
 				},
@@ -259,8 +259,8 @@ func (t *Tree) Insert(k string, v interface{}) (inserted bool) {
 
 		// create new leaf and size +1
 		leaf := &leaf{
-			key: k,
-			val: v,
+			key:   k,
+			value: v,
 		}
 		t.size++
 
@@ -319,7 +319,7 @@ func (t *Tree) Delete(key string) (value interface{}, deleted bool) {
 				if parent != nil && parent != t.root && len(parent.edges) == 1 && !parent.isLeaf() {
 					parent.mergeChild()
 				}
-				return leaf.val, true
+				return leaf.value, true
 			}
 			break
 		}
@@ -355,7 +355,7 @@ func (n *node) mergeChild() {
 	n.edges = child.edges
 }
 
-// If there is a key-value pair corresponding to specified key, it will be returned,
+// If there is a key-value pair corresponding to given key, it will be returned,
 // otherwise nil and false will be returned.
 func (t *Tree) Get(key string) (interface{}, bool) {
 	searches := []rune(key)
@@ -363,7 +363,7 @@ func (t *Tree) Get(key string) (interface{}, bool) {
 	for {
 		if len(searches) == 0 {
 			if n.isLeaf() {
-				return n.leaf.val, true
+				return n.leaf.value, true
 			}
 			break
 		}
@@ -412,10 +412,53 @@ func (t *Tree) LongestMatch(key string) (string, interface{}, bool) {
 	// this is different from Get()
 	// return the last found
 	if last != nil {
-		return last.key, last.val, true
+		return last.key, last.value, true
 	}
 
 	return "", nil, false
+}
+
+// Find all keys in a tree starting with a given key
+func (t *Tree) CollectKeys(key string) []string {
+	keys := []string{}
+
+	searches := []rune(key)
+	var found *node
+	n := t.root
+	for {
+		if len(searches) == 0 {
+			found = n
+			break
+		}
+
+		n = n.getChild(searches[0])
+		if n == nil {
+			// no child means key not found in this tree
+			return keys
+		}
+
+		if startsWith(searches, n.prefixes) {
+			searches = searches[len(n.prefixes):]
+			continue // searching
+		}
+
+		if startsWith(n.prefixes, searches) {
+			found = n
+		}
+		break
+	}
+
+	if found == nil {
+		return keys
+	}
+
+	// starting from the found, collect all keys
+	walk(found, func(k string, v interface{}) bool {
+		keys = append(keys, k)
+		return false
+	})
+
+	return keys
 }
 
 // The edges are sorted, so if you follow the younger edge, you will reach the top value.
@@ -423,7 +466,7 @@ func (t *Tree) Top() (string, interface{}, bool) {
 	n := t.root
 	for {
 		if n.isLeaf() {
-			return n.leaf.key, n.leaf.val, true
+			return n.leaf.key, n.leaf.value, true
 		}
 		if len(n.edges) > 0 {
 			n = n.edges[0].node
@@ -443,7 +486,7 @@ func (t *Tree) Bottom() (string, interface{}, bool) {
 			continue
 		}
 		if n.isLeaf() {
-			return n.leaf.key, n.leaf.val, true
+			return n.leaf.key, n.leaf.value, true
 		}
 		break
 	}
@@ -462,7 +505,7 @@ func (t *Tree) Walk(fn WalkCallback) {
 // Call the callback function when the leaf is reached, and end the search when it returns true
 func walk(n *node, fn WalkCallback) bool {
 	if n.leaf != nil {
-		if fn(n.leaf.key, n.leaf.val) {
+		if fn(n.leaf.key, n.leaf.value) {
 			return true
 		}
 	}

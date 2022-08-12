@@ -174,8 +174,8 @@ func TestCollect(t *testing.T) {
 
 	r := New()
 
-	for i, key := range keys {
-		r.Insert(key, i)
+	for _, key := range keys {
+		r.Insert(key, nil)
 	}
 
 	for _, test := range tests {

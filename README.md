@@ -37,12 +37,12 @@ type Tree struct {
 
 <br><br>
 
-### leaf
+### Leaf
 
-key-valueペアを保持する構造体です。leafを作成したらTreeのsizeを+1し、削除したらsizeを-1します。
+key-valueペアを保持する構造体です。Leafを作成したらTreeのsizeを+1し、削除したらsizeを-1します。
 
 ```go
-type leaf struct {
+type Leaf struct {
 	key string
 	value interface{}
 }
@@ -61,7 +61,7 @@ type leaf struct {
 
 ```go
 type node struct {
-	leaf *leaf
+	leaf *Leaf
 	prefixes []rune
 	edges []edge
 }
@@ -400,7 +400,7 @@ root-(a)-[a]-(*)-[*z, wc=true, root]
 radix_test.goにこのテスト（↓）を書きました。
 
 ```go
-func TestCollect(t *testing.T) {
+func TestCollectKeys(t *testing.T) {
 	keys := []string{
 		"sea",
 		"sells",
@@ -416,6 +416,7 @@ func TestCollect(t *testing.T) {
 		{"sh", []string{"shells", "shore"}},
 		{"she", []string{"shells"}},
 		{"sho", []string{"shore"}},
+		{"shore", []string{"shore"}},
 		{"shop", []string{}},
 	}
 
@@ -426,15 +427,18 @@ func TestCollect(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		keys := r.CollectKeys(test.input)
-		if reflect.DeepEqual(keys, test.expected) == false {
+		ks := r.CollectKeys(test.input)
+		if ks == nil {
+			t.Fatalf("key not found in this tree: %v", keys)
+		}
+		if reflect.DeepEqual(ks, test.expected) == false {
 			t.Fatalf("input: %v, expected: %v, got: %v", test.input, test.expected, keys)
 		}
 	}
 }
 ```
 
-`sea` と `sells` と `shells` と `shore` がツリーの中に格納されています。
+ツリーには `sea` と `sells` と `shells` と `shore` が格納されています。
 
 sを入力すると、sで始まっているもの、すなわち`sea` と `sells` と `shells` と `shore` の4つが候補として出てきます。
 
@@ -444,7 +448,4 @@ sheと入力すると、sheで始まっているもの、すなわち、`shells`
 
 shopと入力すると、shopで始まっているものは何もありませんので、候補はありません。
 
-もちろんテストはPASSしますので、期待通りに動作しています。
-
-CollectKeys()はツリー内に格納されているキーだけを取り出していますが、
-key-valueペアを取り出すようにした方が応用の範囲は広いかもしれません（改造は簡単です）。
+このようにradix treeに格納しておけば、補完候補を効率的に取り出せます。

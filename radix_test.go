@@ -152,7 +152,7 @@ func TestUndelete(t *testing.T) {
 
 }
 
-func TestCollect(t *testing.T) {
+func TestCollectKeys(t *testing.T) {
 	keys := []string{
 		"sea",
 		"sells",
@@ -179,8 +179,11 @@ func TestCollect(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		keys := r.CollectKeys(test.input)
-		if reflect.DeepEqual(keys, test.expected) == false {
+		ks := r.CollectKeys(test.input)
+		if ks == nil {
+			t.Fatalf("key not found in this tree: %v", keys)
+		}
+		if reflect.DeepEqual(ks, test.expected) == false {
 			t.Fatalf("input: %v, expected: %v, got: %v", test.input, test.expected, keys)
 		}
 	}

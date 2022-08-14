@@ -44,13 +44,13 @@ func (t *Tree) ToMap() map[string]interface{} {
 
 // node definition
 type node struct {
-	leaf     *leaf  // reference to a leaf node or nil
+	leaf     *Leaf  // reference to a leaf node or nil
 	prefixes []rune // Unique part excluding the intersection until this node
 	edges    []edge // slice of edge, always kept sorted
 }
 
-// leaf definition, leaf stores a key-value-pair
-type leaf struct {
+// Leaf definition, Leaf stores a key-value-pair
+type Leaf struct {
 	key   string
 	value interface{}
 }
@@ -194,7 +194,7 @@ func (t *Tree) Insert(k string, v interface{}) (inserted bool) {
 			}
 
 			// create a new leaf
-			n.leaf = &leaf{
+			n.leaf = &Leaf{
 				key:   k,
 				value: v,
 			}
@@ -213,7 +213,7 @@ func (t *Tree) Insert(k string, v interface{}) (inserted bool) {
 			e := edge{
 				label: searches[0],
 				node: &node{
-					leaf: &leaf{
+					leaf: &Leaf{
 						key:   k,
 						value: v,
 					},
@@ -258,7 +258,7 @@ func (t *Tree) Insert(k string, v interface{}) (inserted bool) {
 		n1.addEdge(edge{label: n2.prefixes[0], node: n2}) // add edge to n2
 
 		// create new leaf and size +1
-		leaf := &leaf{
+		leaf := &Leaf{
 			key:   k,
 			value: v,
 		}
@@ -386,7 +386,7 @@ func (t *Tree) Get(key string) (interface{}, bool) {
 // Returns the closest key-value pair in a longest match rule
 func (t *Tree) LongestMatch(key string) (string, interface{}, bool) {
 	searches := []rune(key)
-	var last *leaf
+	var last *Leaf
 	n := t.root
 	for {
 		if n.isLeaf() {
@@ -418,9 +418,9 @@ func (t *Tree) LongestMatch(key string) (string, interface{}, bool) {
 	return "", nil, false
 }
 
-// Find all keys in a tree starting with a given key
-func (t *Tree) CollectKeys(key string) []string {
-	keys := []string{}
+// Find all key-values starting with a given key
+func (t *Tree) Collect(key string) []Leaf {
+	leafs := []Leaf{}
 
 	searches := []rune(key)
 	var found *node
@@ -434,7 +434,7 @@ func (t *Tree) CollectKeys(key string) []string {
 		n = n.getChild(searches[0])
 		if n == nil {
 			// no child means key not found in this tree
-			return keys
+			return leafs
 		}
 
 		if startsWith(searches, n.prefixes) {
@@ -449,15 +449,28 @@ func (t *Tree) CollectKeys(key string) []string {
 	}
 
 	if found == nil {
-		return keys
+		return leafs
 	}
 
-	// starting from the found, collect all keys
+	// starting from the found, collect all key-value pairs
 	walk(found, func(k string, v interface{}) bool {
-		keys = append(keys, k)
+		leafs = append(leafs, Leaf{key: k, value: v})
 		return false
 	})
 
+	return leafs
+}
+
+func (t *Tree) CollectKeys(key string) []string {
+	leafs := t.Collect(key)
+	if leafs == nil {
+		return []string{}
+	}
+
+	keys := []string{}
+	for _, leaf := range leafs {
+		keys = append(keys, leaf.key)
+	}
 	return keys
 }
 

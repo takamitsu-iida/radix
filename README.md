@@ -8,6 +8,71 @@ key-valueペアを保持するデータ構造です。
 - keyに対してロンゲストマッチ方式で情報を取り出せます。
 - keyで始まる全てのキーを取り出せます。
 
+<br><br>
+
+# 使い方
+
+radix_test.go にある通りです。
+
+```go
+func TestInsertDelete(t *testing.T) {
+	keys := []string{
+		"",
+		"あ",
+		"い",
+		"う",
+		"え",
+		"お",
+		"あい",
+		"あいう",
+		"あいうえ",
+		"あいうえお",
+		"あかさたな",
+	}
+
+	r := New()
+
+	// insert
+	for i, key := range keys {
+		r.Insert(key, i)
+	}
+
+	// check length
+	if r.Len() != len(keys) {
+		t.Fatalf("expected length=%v, got=%v", len(keys), r.Len())
+	}
+
+	//
+	// go test ./radix -v
+	//
+
+	// print the tree
+	r.Walk(func(k string, v interface{}) bool {
+		fmt.Println(k, v)
+		return false
+	})
+
+	// delete
+	for _, key := range keys {
+		_, ok := r.Delete(key)
+		if !ok {
+			t.Fatalf("delete failed %q", key)
+		}
+	}
+
+	// check length
+	if r.Len() != 0 {
+		t.Fatalf("expected length=%v, got=%v", 0, r.Len())
+	}
+}
+```
+
+<br><br>
+
+---
+
+<br><br>
+
 ## 実装メモ
 
 自分でもすぐに忘れてしまうのでメモを残します。
